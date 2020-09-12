@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+#
+# megabackup - a program to remotely back up your data to MEGA.nz's file
+# hosting service.
+#
+#   This is Free Software licensed under the terms and conditions of the
+#   GNU GPL v3. For more information see LICENSE or access:
+#   https://gnu.org/licenses
+#
+
+'''
+megabackup - a program to remotely back up your data to MEGA.nz's file
+hosting service.
+
+USAGE: megabackup LOCALFILE [REMOTE DIRECTORY]
+
+If no REMOTE DIRECTORY is specified, uploads to directory root (/)
+
+Requires mega.py to work, installable through pip as:
+    pip install mega.py
+'''
+
+import sys
+from getpass import getpass
+
+try:
+    from mega import Mega
+except ImportError:
+    print('''This program requires mega.py to work.
+Install it through pip as follows before running again:
+    pip install mega.py
+    ''')
+
+# A few global flags:
+PUBLIC = False
+FILENAME = ""
+
+def helper():
+    print('''megabackup - a program to remotely back up your data to MEGA.nz's file
+hosting service.
+
+USAGE: megabackup LOCALFILE [REMOTE DIRECTORY] [-p] [-h]
+
+Where:
+    -p: makes the uploaded files public (available through a shareable link)
+    -h: prints this help message
+
+If no REMOTE DIRECTORY is specified, uploads to directory root (/)
+
+Requires mega.py to work, installable through pip as:
+    pip install mega.py
+    ''')
+
+def parse():
+    '''
+    Sort through available options and command-line arguments.
+    '''
+    global FILENAME
+    global PUBLIC
+    args = sys.argv
+    args.reverse()
+
+    args.pop()
+    
+    while len(args) > 0:
+        argument = args.pop()
+        if argument == '-p':
+            PUBLIC = True
+        elif argument == '-h':
+            helper()
+            sys.exit(0)
+        else:
+            if argument[0] == "-":
+                print("Error: unknown option '%s'" % argument)
+                helper()
+                sys.exit(1)
+            else:
+                FILENAME = argument
+    
+    # Before we do anything with the file, just ensure it exists...
+    try:
+        with open(FILENAME, 'r') as testfile:
+            pass
+    except FileNotFoundError:
+        print("Error: file %s not found." % FILENAME)
+        sys.exit(1)
+
+
+def login(mega):
+    '''
+    Returns a "session" object with which you can control things inside MEGA
+    mega is an instance of Mega() class
+
+    Raises some kind of RequestError when login fails (wrong username or password)
+    '''
+    email = input("Enter your MEGA.nz email address: ")
+    password = getpass("Password for %s: " % email)
+    
+    try:
+        m = mega.login(email, password)
+        return m
+
+    except: # Hard to catch this exception...
+        print("Error: email address or password incorrect")
+        sys.exit(1)
+
+
+def upload(m, filename, folder = None, public = False):
+    '''
+    Uploads filename into the directory root of the MEGA account, with an
+    optional public link (for sharing, etc)
+    '''
+    print("Uploading %s..." % filename)
+    try:
+        f = m.upload(filename)
+        if public:
+            print("%s uploaded and now available at: %s" % 
+                (filename, m.get_upload_link(f)))
+        else:
+            print("%s uploaded" % filename)
+
+    except:
+        print("Error: sorry, it was not possible to upload %s." % filename)
+        sys.exit(1)
+
+def main():
+    if len(sys.argv) == 1:
+        helper()
+        sys.exit(1)
+
+    parse()
+    
+    mega = Mega()
+    m = login(mega)
+    upload(m, FILENAME, public = PUBLIC)
+
+    sys.exit(0)
+
+if __name__ == "__main__":
+    main()
