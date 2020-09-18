@@ -18,6 +18,7 @@ Requires mega.py to work, installable through pip as:
     pip install mega.py
 '''
 
+import os
 import sys
 from getpass import getpass
 
@@ -113,7 +114,15 @@ def upload(m, filename, folder = None, public = False):
     Uploads filename into the directory root of the MEGA account, with an
     optional public link (for sharing, etc)
     '''
-    print("Uploading %s..." % filename)
+    filesize = os.stat(filename).st_size
+
+    if filesize > 1000000:
+        print("Uploading %s (%.2f MB)..." % (filename, (filesize / 1000000)))
+    elif filesize > 10000:
+        print("Uploading %s (%.2f kB)..." % (filename, (filesize / 1000)))
+    else:
+        print("Uploading %s (%.2f bytes)..." % (filename, filesize))
+        
     try:
         f = m.upload(filename)
         if public:
