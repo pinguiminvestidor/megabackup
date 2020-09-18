@@ -12,9 +12,7 @@
 megabackup - a program to remotely back up your data to MEGA.nz's file
 hosting service.
 
-USAGE: megabackup LOCALFILE [REMOTE DIRECTORY]
-
-If no REMOTE DIRECTORY is specified, uploads to directory root (/)
+USAGE: megabackup LOCALFILES
 
 Requires mega.py to work, installable through pip as:
     pip install mega.py
@@ -30,16 +28,17 @@ except ImportError:
 Install it through pip as follows before running again:
     pip install mega.py
     ''')
+    sys.exit(1)
 
 # A few global flags:
 PUBLIC = False
-FILENAME = ""
+FILES = []
 
 def helper():
     print('''megabackup - a program to remotely back up your data to MEGA.nz's file
 hosting service.
 
-USAGE: megabackup LOCALFILE [REMOTE DIRECTORY] [-p] [-h]
+USAGE: megabackup [-p] [-h] FILE1 FILE2 ... FILEN
 
 Where:
     -p: makes the uploaded files public (available through a shareable link)
@@ -48,6 +47,7 @@ Where:
 If no REMOTE DIRECTORY is specified, uploads to directory root (/)
 
 Requires mega.py to work, installable through pip as:
+
     pip install mega.py
     ''')
 
@@ -55,11 +55,12 @@ def parse():
     '''
     Sort through available options and command-line arguments.
     '''
-    global FILENAME
+    global FILES
     global PUBLIC
     args = sys.argv
-    args.reverse()
 
+    # received argument list is like ['megabackup','arg1','arg2'...]
+    args.reverse()
     args.pop()
     
     while len(args) > 0:
@@ -75,15 +76,17 @@ def parse():
                 helper()
                 sys.exit(1)
             else:
-                FILENAME = argument
+                # Assume that anything without a '-' is a file
+                FILES.append(argument)
     
-    # Before we do anything with the file, just ensure it exists...
-    try:
-        with open(FILENAME, 'r') as testfile:
-            pass
-    except FileNotFoundError:
-        print("Error: file %s not found." % FILENAME)
-        sys.exit(1)
+    # Before we do anything with the files, just ensure they exist...
+    for item in FILES:
+        try:
+            with open(item, 'r') as testfile:
+                pass
+        except FileNotFoundError:
+            print("Error: file %s not found." % item)
+            sys.exit(1)
 
 
 def login(mega):
@@ -100,7 +103,7 @@ def login(mega):
         m = mega.login(email, password)
         return m
 
-    except: # Hard to catch this exception...
+    except: # Hard to catch this specific exception, but here we go...
         print("Error: email address or password incorrect")
         sys.exit(1)
 
@@ -129,12 +132,19 @@ def main():
         sys.exit(1)
 
     parse()
-    
+    count = 0
     mega = Mega()
     m = login(mega)
-    upload(m, FILENAME, public = PUBLIC)
+    filecount = len(FILES)
+
+    for item in FILES:
+        count += 1
+        print("[%s of %s]" % (count, filecount))
+        upload(m, item, public = PUBLIC)
 
     sys.exit(0)
+
+
 
 if __name__ == "__main__":
     main()
