@@ -20,6 +20,7 @@ Requires mega.py to work, installable through pip as:
 
 import os
 import sys
+import json
 from getpass import getpass
 
 try:
@@ -31,7 +32,10 @@ Install it through pip as follows before running again:
     ''')
     sys.exit(1)
 
-# A few global flags:
+# Configuration file, containing two lines for username and password:
+CONFIG = os.environ['HOME'] + "/.config/megabackuprc"
+
+# A few program-wide variables:
 PUBLIC = False
 FILES = []
 
@@ -51,6 +55,35 @@ Requires mega.py to work, installable through pip as:
 
     pip install mega.py
     ''')
+
+def getcreds():
+    '''
+    Parses CONFIG to figure out user credentials for MEGA
+
+    Returns a tuple with (username,password), or empty if error
+    '''
+    global CONFIG
+    contents = ''
+
+    try:
+        with open(CONFIG, 'r') as config:
+            contents = json.loads(config.read())
+
+    except FileNotFoundError:
+        print("""Error: config file %s not found. 
+Please create it in this format:
+{
+    "username": "YOUREMAILADDRESS@example.com",
+    "password": "YOURPASSWORD"
+}
+        """ % CONFIG)
+        sys.exit(1)
+
+    username = contents["username"]
+    password = contents["password"]
+
+    return (username, password)
+
 
 def parse():
     '''
@@ -85,26 +118,33 @@ def parse():
         try:
             with open(item, 'r') as testfile:
                 pass
+
+        except IsADirectoryError:
+            # we will warn at upload time.
+            # print("Warning: cannot upload directory %s" % item)
+            pass
+
         except FileNotFoundError:
             print("Error: file %s not found." % item)
             sys.exit(1)
 
 
-def login(mega):
+def login(mega, username, password):
     '''
     Returns a "session" object with which you can control things inside MEGA
-    mega is an instance of Mega() class
+    
+    mega is an instance of Mega() class.
+    username is the email address associated with your MEGA acount.
+    password is the password for said account.
 
     Raises some kind of RequestError when login fails (wrong username or password)
     '''
-    email = input("Enter your MEGA.nz email address: ")
-    password = getpass("Password for %s: " % email)
-    
     try:
-        m = mega.login(email, password)
+        m = mega.login(username, password)
+        print("Login successful.")
         return m
 
-    except: # Hard to catch this specific exception, but here we go...
+    except: # Hard to catch this specific exception, so here we go...
         print("Error: email address or password incorrect")
         sys.exit(1)
 
@@ -113,7 +153,13 @@ def upload(m, filename, folder = None, public = False):
     '''
     Uploads filename into the directory root of the MEGA account, with an
     optional public link (for sharing, etc)
+
+    Sorry, cannot upload directories yet.
     '''
+    if os.path.isdir(filename):
+        print("Skipping directory %s for now..." % filename)
+        return
+
     filesize = os.stat(filename).st_size
 
     if filesize > 1000000:
@@ -135,15 +181,23 @@ def upload(m, filename, folder = None, public = False):
         print("Error: sorry, it was not possible to upload %s." % filename)
         sys.exit(1)
 
+
 def main():
     if len(sys.argv) == 1:
         helper()
         sys.exit(1)
 
+    # Scan config file for credentials.
+    credentials = getcreds()
+    username = credentials[0]
+    password = credentials[1]
+
     parse()
     count = 0
+
+    # Perform login with the credentials supplied in the config
     mega = Mega()
-    m = login(mega)
+    m = login(mega, username, password)
     filecount = len(FILES)
 
     for item in FILES:
@@ -152,7 +206,6 @@ def main():
         upload(m, item, public = PUBLIC)
 
     sys.exit(0)
-
 
 
 if __name__ == "__main__":
