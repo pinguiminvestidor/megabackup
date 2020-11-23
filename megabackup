@@ -155,6 +155,8 @@ def upload(m, filename, folder = None, public = False):
     optional public link (for sharing, etc)
 
     Sorry, cannot upload directories yet.
+
+    Returns True if the upload is successful, False otherwise.
     '''
     if os.path.isdir(filename):
         print("Skipping directory %s for now..." % filename)
@@ -177,9 +179,14 @@ def upload(m, filename, folder = None, public = False):
         else:
             print("%s uploaded" % filename)
 
+        return True
+
     except:
+        # Note: the correct behavior here should be "try the upload again, dummy."
+        # Either "save" the file for later or try again (maybe give up after 3 
+        # consecutive failures?)
         print("Error: sorry, it was not possible to upload %s." % filename)
-        sys.exit(1)
+        return False
 
 
 def main():
@@ -193,7 +200,12 @@ def main():
     password = credentials[1]
 
     parse()
+
+    # Count of files
     count = 0
+
+    # Hold any files that could not be uploaded.
+    failures = []
 
     # Perform login with the credentials supplied in the config
     mega = Mega()
@@ -203,7 +215,26 @@ def main():
     for item in FILES:
         count += 1
         print("[%s of %s]" % (count, filecount))
-        upload(m, item, public = PUBLIC)
+
+        trial = 1
+        success = False
+
+        # Try to upload a file 3 times, then skip.
+        while not success:
+            success = upload(m, item, public = PUBLIC)
+            if not success:
+                if trial <= 3:
+                    trial += 1
+                    print("Retrying upload. Try #%s..." % trial)
+                else:
+                    print("FAIL: skipping %s after 3 failures." % item)
+                    failures.append(item)
+            
+    if len(failures) > 0:
+        # Suggestion: write these to a log file instead of terminal?
+        print("The following files could not be uploaded:")
+        for item in failures:
+            print(item)
 
     sys.exit(0)
 
