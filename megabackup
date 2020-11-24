@@ -120,8 +120,8 @@ def parse():
                 pass
 
         except IsADirectoryError:
-            # we will warn at upload time.
-            # print("Warning: cannot upload directory %s" % item)
+            # Right now, we can't (yet) upload folders.
+            # For now, we will warn the user at upload time.
             pass
 
         except FileNotFoundError:
@@ -144,8 +144,9 @@ def login(mega, username, password):
         print("Login successful.")
         return m
 
-    except: # Hard to catch this specific exception, so here we go...
-        print("Error: email address or password incorrect")
+    except: # Hard to catch this specific exception, so have a generic message
+        print("Error: it was not possible to log in to MEGA's service.")
+        print("Please make sure that your credentials in ~/.config/megabackuprc are correct and that you are connected to the internet.")
         sys.exit(1)
 
 
@@ -160,7 +161,7 @@ def upload(m, filename, folder = None, public = False):
     '''
     if os.path.isdir(filename):
         print("Skipping directory %s for now..." % filename)
-        return
+        return True
 
     filesize = os.stat(filename).st_size
 
@@ -229,6 +230,7 @@ def main():
                 else:
                     print("FAIL: skipping %s after 3 failures." % item)
                     failures.append(item)
+                    continue
             
     if len(failures) > 0:
         # Suggestion: write these to a log file instead of terminal?
